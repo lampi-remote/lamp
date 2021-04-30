@@ -1,0 +1,6 @@
+- name: install Mixpanel async library
+  tags: [mixpanel]
+  become: True
+  pip:
+    name: mixpanel-py-async
+

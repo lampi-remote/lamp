@@ -1,0 +1,19 @@
+- name: install memcached
+  become: True
+  apt:
+    name: memcached
+    cache_valid_time: "{{ cache_update_valid_secs }}"
+
+- name: Spring 21 DISABLE memcached
+  become: True
+  service:
+    name: memcached
+    enabled: no
+    state: stopped
+
+- name: install Python memcached library
+  become: True
+  pip:
+    name: python-memcached
+
+

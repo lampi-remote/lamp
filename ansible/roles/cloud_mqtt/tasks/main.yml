@@ -1,0 +1,7 @@
+---
+# tasks file for cloud_mqtt
+
+- import_tasks: 04.yml
+- import_tasks: 05.yml
+- import_tasks: 13.yml
+- import_tasks: 14.yml

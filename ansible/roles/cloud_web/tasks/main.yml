@@ -1,0 +1,10 @@
+---
+# tasks file for cloud_web
+- import_tasks: 05.yml
+- import_tasks: 10.yml # include chapter 10 (mixpanel) before django
+- import_tasks: 06.yml
+- import_tasks: 07.yml
+- import_tasks: 10.yml
+- import_tasks: 11.yml
+- import_tasks: 12.yml
+- import_tasks: 13.yml

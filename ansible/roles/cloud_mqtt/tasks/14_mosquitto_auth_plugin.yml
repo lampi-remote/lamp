@@ -1,0 +1,77 @@
+- name: install dependencies for mosquitto-auth-plugin
+  become: True
+  apt:
+    name: ['libcurl4-openssl-dev', 'libwebsockets-dev', 'uuid-dev', 'build-essential']
+    cache_valid_time: "{{ cache_update_valid_secs }}"
+
+- name: make working directory for mosquitto auth plugin work
+  file:
+    path: "{{ mosquitto_working_dir}}"
+    state: directory
+
+- name: clone the Mosquitto git repo and checkout the version we have installed
+  git:
+    repo: "{{ mosquitto_repo_url }}"
+    dest: "{{ mosquitto_working_dir}}/mosquitto"
+    version: "{{ mosquitto_git_version_tag }}"
+
+- name: build mosquitto
+  make:
+    chdir: "{{ mosquitto_working_dir}}/mosquitto"
+    target: binary
+    params:
+      WITH_SRV: no
+
+- name: clone the Mosquitto Auth Plugin repo and checkout the version we want
+  git:
+    repo: "{{ mosquitto_auth_plugin_repo_url }}"
+    dest: "{{ mosquitto_working_dir}}/mosquitto-auth-plugin"
+    version: "{{ mosquitto_auth_plugin_git_version_tag }}"
+    force: yes
+
+- name: patch the Mosquitto Auth Plugin (prevents a segmentation fault)
+  patch:
+    src: mosquitto_auth_plugin_0.1.2.patch
+    basedir: "{{ mosquitto_working_dir}}/mosquitto-auth-plugin"
+    strip: 1
+
+- name: configure the mosquitto_auth_plugin
+  template:
+    src: 14_mosquitto_auth_plugin_config.in
+    dest: "{{ mosquitto_working_dir}}/mosquitto-auth-plugin/config.mk"
+
+- name: build the mosquitto_auth_plugin
+  make:
+    chdir: "{{ mosquitto_working_dir}}/mosquitto-auth-plugin"
+
+- name: create a plugin directory
+  become: True
+  file:
+    path: /etc/mosquitto/plugins
+    state: directory
+
+- name: copy the plugin to the plugin directory
+  become: True
+  copy:
+    remote_src: True
+    mode: u=rwx,g=rx,o=rx
+    src: "{{ mosquitto_working_dir}}/mosquitto-auth-plugin/auth-plug.so"
+    dest: /etc/mosquitto/plugins
+
+- name: install a new mosquitto configuration to use the auth plugin
+  become: True
+  template:
+    src: 14_mqtt_auth_plugin.conf
+    dest: /etc/mosquitto/conf.d/auth_plugin.conf
+
+- name: restart mosquitto
+  become: True
+  service:
+    name: mosquitto
+    state: restarted
+
+- name: install tmux
+  become: True
+  apt:
+    name: tmux
+    cache_valid_time: "{{ cache_update_valid_secs }}"

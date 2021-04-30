@@ -1,0 +1,29 @@
+- name: install supervisor (needed earlier now)
+  become: True
+  apt:
+    name: supervisor
+    cache_valid_time: "{{ cache_update_valid_secs }}"
+
+- name: install build-essential
+  become: True
+  apt:
+    name: build-essential
+    cache_valid_time: "{{ cache_update_valid_secs }}"
+
+- name: install Mixpanel credentials into mixpanel_settings.py
+  template:
+    src: 10_mixpanel_settings.py
+    dest: "{{ django_dir }}/lampisite/mixpanel_settings.py"
+    force: no
+
+- name: install Mixpanel library
+  become: True
+  pip:
+    name: mixpanel
+
+- name: restart uwsgi (depending on chapter this might fail and that's ok)
+  become: True
+  supervisorctl:
+    name: uwsgi
+    state: "restarted"
+  ignore_errors: true

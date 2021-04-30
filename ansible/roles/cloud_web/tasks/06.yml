@@ -1,0 +1,5 @@
+- import_tasks: 12_postgres.yml
+- import_tasks: 06_django.yml
+- import_tasks: 06_mqtt-daemon.yml
+
+

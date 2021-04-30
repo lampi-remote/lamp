@@ -1,0 +1,121 @@
+- name: install rng-tools
+  become: True
+  apt:
+    name: rng-tools
+    cache_valid_time: "{{ cache_update_valid_secs }}"
+
+- name: configure rngd
+  become: True
+  shell: |
+    rngd -r /dev/urandom
+
+- name: see if .gnupg directory exists
+  tags: gpg
+  stat: path=/home/ubuntu/.gnupg
+  register: gnupg_dir
+
+- name: make .gnupg directory
+  tags: gpg
+  when: not gnupg_dir.stat.exists
+  file:
+    path: /home/ubuntu/.gnupg
+    state: directory
+    mode: og-rwx
+
+- name: see if .gnupg/gpg.conf exists
+  tags: gpg
+  stat: path=/home/ubuntu/.gnupg/gpg.conf
+  register: gpg_conf
+
+- name: set gpg.conf
+  tags: gpg
+  when: not gpg_conf.stat.exists
+  template:
+    dest: /home/ubuntu/.gnupg/gpg.conf
+    src: 11_gpg.conf
+
+- name: see if gpg keys already exist
+  tags: gpg
+  register: gpg_keys
+  shell: |
+    gpg --list-keys
+
+- name: generate gpg key config (if needed)
+  tags: gpg
+  when: gpg_keys.stdout.find('rsa4096')==-1
+  template:
+    src: 11_gpg_key_config
+    dest: "{{ gpg_key_config_path }}"
+
+
+- name: generate gpg keys (if needed)
+  tags: gpg
+  when: gpg_keys.stdout.find('rsa4096')==-1
+  shell: |
+    gpg --batch --gen-key {{ gpg_key_config_path }}
+
+- name: remove gpg key config (if needed)
+  tags: gpg
+  when: gpg_keys.stdout.find('rsa4096')==-1
+  file:
+    path: "{{ gpg_key_config_path }}"
+    state: absent
+
+- name: get gpg key ids
+  tags: gpg
+  register: gpg_keys
+  shell: |
+    gpg --list-keys --with-colons
+
+- name: get gpg sub key parts
+  tags: gpg
+  set_fact:
+    gpg_sub_key_str: "{{ gpg_keys.stdout_lines | list | last }}"
+
+- name: get gpg sub key id
+  tags: gpg
+  set_fact:
+    apt_repo_subkey_id: "{{ gpg_sub_key_str.split(':')[9] }}"
+    cacheable: True
+
+- name: dump gpg key id
+  tags: gpg
+  debug:
+    msg: "{{ apt_repo_subkey_id }}"
+
+- name: register gpg key
+  tags: gpg
+  shell: |
+    gpg --keyserver keyserver.ubuntu.com --send-key {{ apt_repo_subkey_id }}
+
+- name: install reprepo
+  become: True
+  apt:
+    name: reprepro
+    cache_valid_time: "{{ cache_update_valid_secs }}"
+
+- name: configure repository
+  become: True
+  tags: gpg
+  template:
+    src: 11_reprepro_distribution_conf
+    dest: "{{ repo_directory }}/Web/reprepro/ubuntu/conf/distributions"
+
+- name: install reprepro nginx configuration
+  become: True
+  template:
+    dest: /etc/nginx/sites-available/reprepro-apt.conf
+    src: 11_reprepro_nginx.conf
+
+- name: make nginx reprepro nginx configuration available
+  become: True
+  file:
+    state: link
+    src: /etc/nginx/sites-available/reprepro-apt.conf
+    dest: /etc/nginx/sites-enabled/reprepro-apt.conf
+
+- name: restart NGINX
+  become: True
+  service:
+    name: nginx
+    state: restarted

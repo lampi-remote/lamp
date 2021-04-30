@@ -1,0 +1,61 @@
+- name: determine our device_id
+  set_fact:
+    device_id: "{{ ansible_eth0.macaddress | regex_replace(':', '')}}" 
+
+- name: see if we have a key
+  become: True
+  stat: path="/etc/mosquitto/certs/{{ device_id }}_broker.key"
+  register: key_file
+
+- name: create our key if needed
+  local_action: shell cd {{ role_path }}/files && openssl genrsa -out {{ device_id }}_broker.key 2048
+  when: not key_file.stat.exists
+
+- name: see if we have a cert
+  become: True
+  stat: path="/etc/mosquitto/certs/{{ device_id }}_broker.crt"
+  register: cert_file
+
+###
+### WARNING!!!!! WARNING!!!!! WARNING!!!!
+###
+### this is poor security - putting passphrase in the code
+### we should be using Ansible Vault to at least encrypt the values
+###
+
+- name: create our cert if needed
+  local_action: shell cd {{ role_path }}/files && openssl req -out {{ device_id }}_broker.csr -key {{ device_id }}_broker.key -new -subj "/C=US/ST=Ohio/L=Cleveland/O=CWRU/CN={{ device_id }}_broker/emailAddress=nab2@cwru.edu" -sha256 && openssl x509 -req -in {{ device_id }}_broker.csr -CA lampi_ca.crt -CAkey lampi_ca.key -CAcreateserial -out {{ device_id }}_broker.crt -days 365 -sha256 -passin pass:iot12345
+  when: not key_file.stat.exists or not cert_file.stat.exists
+
+- name: install our key (if needed)
+  become: True
+  copy:
+    src: "{{ device_id }}_broker.key"
+    dest: /etc/mosquitto/certs/{{ device_id }}_broker.key
+  when: not key_file.stat.exists
+
+- name: install our cert (if needed)
+  become: True
+  copy:
+    src: "{{ device_id }}_broker.crt"
+    dest: /etc/mosquitto/certs/{{ device_id }}_broker.crt
+  when: not key_file.stat.exists or not cert_file.stat.exists
+
+
+- name: install our CA
+  become: True
+  copy:
+    src: lampi_ca.crt
+    dest: /etc/mosquitto/ca_certificates/lampi_ca.crt
+
+- name: install MQTT bridge configuration (updated for TLS)
+  become: True
+  template:
+    src: 13_mqtt_bridge.conf
+    dest: /etc/mosquitto/conf.d/lampi_bridge.conf
+
+- name: restart mosquitto
+  become: True
+  service:
+    name: mosquitto
+    state: restarted

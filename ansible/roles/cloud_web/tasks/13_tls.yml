@@ -1,0 +1,66 @@
+- name: gather ec2 facts for later
+  ec2_metadata_facts:
+
+- name: see if we have a key
+  become: True
+  stat: path="/etc/ssl/{{ ansible_ec2_public_hostname }}.key"
+  register: key_file
+
+- name: create our key if needed
+  local_action: shell cd {{ role_path }}/files && openssl genrsa -out {{ ansible_ec2_public_hostname }}.key 2048
+  when: not key_file.stat.exists
+
+- name: see if we have a cert
+  become: True
+  stat: path="/etc/ssl/{{ ansible_ec2_public_hostname }}.crt"
+  register: cert_file
+
+###
+### WARNING!!!!! WARNING!!!!! WARNING!!!!
+###
+### this is poor security - putting passphrase in the code
+### we should be using Ansible Vault to at least encrypt the values
+###
+- name: create our openssl config
+  local_action:
+    module: template
+    dest: "{{ role_path }}/files/openssl.conf"
+    src: "13_openssl.conf"
+  when: not key_file.stat.exists or not cert_file.stat.exists
+
+- name: create our cert if needed
+  local_action: shell cd {{ role_path }}/files && openssl req -out {{ ansible_ec2_public_hostname }}.csr -key {{ ansible_ec2_public_hostname }}.key -new -subj "/C=US/ST=Ohio/L=Cleveland/O=CWRU/" -config openssl.conf -sha256 && openssl x509 -req -in {{ ansible_ec2_public_hostname }}.csr -CA lampi_ca.crt -CAkey lampi_ca.key -CAcreateserial -out {{ ansible_ec2_public_hostname }}.crt -days 365 -sha256 -passin pass:iot12345 -extfile openssl.conf -extensions v3_req
+  when: not key_file.stat.exists or not cert_file.stat.exists
+
+- name: install our key (if needed)
+  become: True
+  copy:
+    src: "{{ ansible_ec2_public_hostname }}.key"
+    dest: /etc/ssl/{{ ansible_ec2_public_hostname }}.key
+  when: not key_file.stat.exists
+
+- name: install our cert (if needed)
+  become: True
+  copy:
+    src: "{{ ansible_ec2_public_hostname }}.crt"
+    dest: /etc/ssl/{{ ansible_ec2_public_hostname }}.crt
+  when: not key_file.stat.exists or not cert_file.stat.exists
+
+# disabling - takes too long an EC2 Micro instance
+#- name: set up DH params
+#  become: True
+#  command:
+#    cmd: openssl dhparam -out /etc/ssl/certs/dhparam.pem 4096
+#    creates: /etc/ssl/certs/dhparam.pem
+
+- name: install our new NGINX Django configuration (with TLS)
+  become: True
+  template:
+    dest: /etc/nginx/sites-available/lampisite.conf
+    src: 13_lampisite_nginx.conf
+
+- name: restart nginx
+  become: True
+  service:
+    name: nginx
+    state: restarted

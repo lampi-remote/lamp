@@ -1,0 +1,42 @@
+- name: install postgres and related packages
+  become: True
+  apt:
+    name: ['libpq-dev', 'postgresql', 'postgresql-contrib']
+    cache_valid_time: "{{ cache_update_valid_secs }}"
+
+- name: install dependencies for psycopg2
+  become: True
+  apt:
+    name: ['build-essential', 'python3-dev']
+    cache_valid_time: "{{ cache_update_valid_secs }}"
+
+
+- name: install Python psycopg2 library
+  become: True
+  pip:
+    name: psycopg2
+
+- name: create postgresql database for our Django project
+  become: True
+  become_user: postgres
+  postgresql_db:
+    name: "{{ lampi_db_name }}"
+    encoding: UTF-8
+
+- name: create postgresql user for our Django project
+  become: True
+  become_user: postgres
+  postgresql_user:
+    db: "{{ lampi_db_name }}"
+    name: "{{ lampi_db_user }}"
+    password: "{{ lampi_db_password }}"
+
+- name: grant privileges to our user to the new database
+  become: True
+  become_user: postgres
+  postgresql_privs:
+    db: "{{ lampi_db_name }}"
+    privs: ALL
+    roles: "{{ lampi_db_user }}"
+    type: database
+    grant_option: yes

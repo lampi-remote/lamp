@@ -1,0 +1,31 @@
+---
+# vars file for cloud_web
+
+# variables for chapter 05
+connected_devices_git_repo_url: "git@github.com:CWRU-Connected-Devices/connected-devices-spring21.git"
+repo_directory: /home/ubuntu/connected-devices
+connected_devices_git_repo_version: master
+root_web_directory: /home/ubuntu/connected-devices/Web/static
+
+# variables for chapter 06
+django_dir: "{{repo_directory}}/Web/lampisite"
+django_admin_username: admin
+django_admin_email: blah@blah.com
+django_admin_password: iot12345
+django_settings: lampisite.settings
+
+# variables for chapter 11
+gpg_key_type: RSA
+gpg_key_length: 4096
+gpg_real_name: iot student
+gpg_key_config_path: /tmp/ansible.gpg_key_gen.conf
+apt_repo_full_name: EECS397 Connected Devices
+apt_repo_name: EECS397 Connected Devices Repository
+apt_repo_short_name: eecs397
+apt_repo_subkey_id: FILL_IN
+
+# variables for chapter 12
+lampi_db_name: lampi
+lampi_db_user: lampiuser
+lampi_db_password: eecs397-iot
+

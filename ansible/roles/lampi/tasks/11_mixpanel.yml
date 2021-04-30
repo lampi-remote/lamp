@@ -1,0 +1,12 @@
+- name: install Mixpanel analytics library
+  tags: [mixpanel]
+  become: True
+  pip:
+    name: mixpanel
+
+- name: install mixpanel credentials into mixpanel_settings.py
+  template:
+    src: 11_mixpanel_settings.py
+    dest: "{{ repo_directory }}/Lampi/lampi/mixpanel_settings.py"
+    force: no
+

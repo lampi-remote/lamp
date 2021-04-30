@@ -1,0 +1,8 @@
+- import_tasks: 12_postgres.yml
+  tags: [debug12]
+- import_tasks: 12_memcached.yml
+  tags: [debug12]
+- import_tasks: 12_django.yml
+  tags: [debug12]
+
+

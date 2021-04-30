@@ -1,0 +1,5 @@
+- name: remove custom apt source
+  become: true
+  file: path=/etc/apt/sources.list.d/lampi.list state=absent
+  ignore_errors: true
+  

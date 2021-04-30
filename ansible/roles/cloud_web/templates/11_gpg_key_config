@@ -1,0 +1,12 @@
+Key-Type: {{ gpg_key_type }}
+Key-Length: {{ gpg_key_length }}
+Subkey-Type: {{ gpg_key_type }}
+Subkey-Length: {{ gpg_key_length }}
+Name-Real: {{ gpg_real_name }}
+Name-Email: {{ django_admin_email }}
+Expire-Date: 0
+Passphrase: {{ django_admin_password }}
+# Do a commit here, so that we can later print "done" :-)
+%commit
+%echo done
+

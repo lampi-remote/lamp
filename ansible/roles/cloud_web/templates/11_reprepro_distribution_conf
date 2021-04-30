@@ -1,0 +1,8 @@
+Origin: {{ apt_repo_full_name }}
+Label: {{ apt_repo_name }}
+Codename: {{apt_repo_short_name }}
+Architectures: armhf armel
+Suite: stable
+Components: main non-free contrib
+Description: Local Debian repository
+SignWith: {{ apt_repo_subkey_id }}

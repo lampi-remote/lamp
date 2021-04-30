@@ -1,0 +1,13 @@
+diff --git a/be-http.c b/be-http.c
+index 74db69e..38687c8 100644
+--- a/be-http.c
++++ b/be-http.c
+@@ -250,7 +250,7 @@ void *be_http_init()
+ 		return (NULL);
+ 	}
+ 
+-	conf = (struct http_backend *)malloc(sizeof(struct http_backend));
++	conf = (struct http_backend *)calloc(sizeof(struct http_backend), 1);
+ 	conf->hostname = hostname;
+ 	conf->port = p_stab("http_port") == NULL ? 80 : atoi(p_stab("http_port"));
+ 	if (p_stab("http_hostname") != NULL) {

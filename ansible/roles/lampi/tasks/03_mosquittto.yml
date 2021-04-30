@@ -1,0 +1,11 @@
+- name: install mosquitto broker and client
+  become: True
+  apt:
+    name: ['mosquitto', 'mosquitto-clients']
+    cache_valid_time: "{{ cache_update_valid_secs }}"
+
+- name: install Paho Python MQTT client library
+  become: True
+  pip:
+    name: paho-mqtt
+

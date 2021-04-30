@@ -1,0 +1,69 @@
+# >COMPATIBILITY: this is all likely to change including kernel version
+
+- name: Remove dependencies that are no longer required
+  become: True
+  apt:
+    autoremove: yes
+
+# install Python3 pip 
+- name: install pip3
+  become: True
+  apt:
+    name: python3-pip
+    cache_valid_time: "{{ cache_update_valid_secs }}"
+
+- name: install dependencies for adafruit script
+  become: True
+  pip:
+    name:
+      - adafruit-python-shell
+      - click==7.0
+
+- name: remove temporary directory
+  become: yes 
+  file: path={{ adafruit_tmp_dir }} state=absent
+  ignore_errors: true
+
+- name: create temporary  directory
+  become: yes 
+  file: path={{ adafruit_tmp_dir }} state=directory
+
+
+- name: clone adafruit repo
+  become: True
+  git:
+    repo: https://github.com/adafruit/Raspberry-Pi-Installer-Scripts.git
+    dest: "{{ adafruit_tmp_dir }}"
+
+- name: run the adafruit-pitft.sh
+  become: True
+  command:
+    argv:
+      - /usr/bin/python3
+      - "{{ adafruit_tmp_dir }}/adafruit-pitft.py"
+      - --display=28c
+      - --rotation=180
+      - --install-type=fbcp
+      - --reboot=no
+
+- name: remove temporary directory
+  become: yes
+  file: path={{ adafruit_tmp_dir }} state=absent
+  ignore_errors: true
+
+
+- name: dpkg-reconfigure console-setup for better console fonts
+  become: True
+  debconf:
+    name: console-setup
+    question: "{{ item.question }}"
+    value: "{{ item.value }}"
+    vtype: select
+  with_items:
+    - { question: 'console-setup/fontface47', value: 'Terminus' }
+    - { question: 'console-setup/fontsize-fb47', value: '6x12 (framebuffer only)' }
+    - { question: 'console-setup/charmap47', value: 'UTF-8' }
+    - { question: 'console-setup/codeset47', value: 'Guess optimal character set' }
+
+
+
