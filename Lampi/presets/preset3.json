@@ -1,0 +1,135 @@
+{
+    "stateList": [
+        {
+            "state": {
+                "h": 0.0,
+                "s": 1.0,
+                "b": 1.0
+            },
+            "smooth": true,
+            "waitTime": 1.5,
+            "transitionTime": 1.5
+        },
+        {
+            "state": {
+                "h": 0.08333,
+                "s": 1.0,
+                "b": 1.0
+            },
+            "smooth": true,
+            "waitTime": 1.5,
+            "transitionTime": 1.5
+        },
+        {
+            "state": {
+                "h": 0.1666,
+                "s": 1.0,
+                "b": 1.0
+            },
+            "smooth": true,
+            "waitTime": 1.5,
+            "transitionTime": 1.5
+        },
+        {
+            "state": {
+                "h": 0.25,
+                "s": 1.0,
+                "b": 1.0
+            },
+            "smooth": true,
+            "waitTime": 1.5,
+            "transitionTime": 1.5
+        },
+        {
+            "state": {
+                "h": 0.3333,
+                "s": 1.0,
+                "b": 1.0
+            },
+            "smooth": true,
+            "waitTime": 1.5,
+            "transitionTime": 1.5
+        },
+        {
+            "state": {
+                "h": 0.4166,
+                "s": 1.0,
+                "b": 1.0
+            },
+            "smooth": true,
+            "waitTime": 1.5,
+            "transitionTime": 1.5
+        },
+        {
+            "state": {
+                "h": 0.5,
+                "s": 1.0,
+                "b": 1.0
+            },
+            "smooth": true,
+            "waitTime": 1.5,
+            "transitionTime": 1.5
+        },
+        {
+            "state": {
+                "h": 0.5833,
+                "s": 1.0,
+                "b": 1.0
+            },
+            "smooth": true,
+            "waitTime": 1.5,
+            "transitionTime": 1.5
+        },
+        {
+            "state": {
+                "h": 0.6666,
+                "s": 1.0,
+                "b": 1.0
+            },
+            "smooth": true,
+            "waitTime": 1.5,
+            "transitionTime": 1.5
+        },
+        {
+            "state": {
+                "h": 0.75,
+                "s": 1.0,
+                "b": 1.0
+            },
+            "smooth": true,
+            "waitTime": 1.5,
+            "transitionTime": 1.5
+        },
+        {
+            "state": {
+                "h": 0.8333,
+                "s": 1.0,
+                "b": 1.0
+            },
+            "smooth": true,
+            "waitTime": 1.5,
+            "transitionTime": 1.5
+        },
+        {
+            "state": {
+                "h": 0.9166,
+                "s": 1.0,
+                "b": 1.0
+            },
+            "smooth": true,
+            "waitTime": 1.5,
+            "transitionTime": 1.5
+        },
+        {
+            "state": {
+                "h": 1.0,
+                "s": 1.0,
+                "b": 1.0
+            },
+            "smooth": true,
+            "waitTime": 0,
+            "transitionTime": 0
+        }
+    ],
+    "loop": true
+}

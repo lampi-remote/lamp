@@ -1,0 +1,25 @@
+{
+    "stateList": [
+        {
+            "state": {
+                "h": 0.0,
+                "s": 1.0,
+                "b": 1.0
+            },
+            "smooth": true,
+            "waitTime": 0,
+            "transitionTime": 100
+        },
+        {
+            "state": {
+                "h": 1.0,
+                "s": 1.0,
+                "b": 1.0
+            },
+            "smooth": true,
+            "waitTime": 100,
+            "transitionTime": 100
+        }
+    ],
+    "loop": false
+}
