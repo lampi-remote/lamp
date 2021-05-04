@@ -74,6 +74,19 @@ TabbedPanel:
   # Remotes
   TabbedPanelItem:
     text: 'Remotes'
-    BoxLayout:
-      Label:
-        text: 'Remotes here'
+    ScrollView:
+      do_scroll_x: False
+      do_scroll_y: True
+
+      BoxLayout:
+        canvas.before:
+          Color:
+            rgb: 0.8, 0.8, 0.8
+          Line:
+            width: 1
+            rectangle: self.x, 0, self.width, 1
+        orientation: 'horizontal'
+        size_hint_y: 0.2
+
+        Label:
+          text: 'Remotes'
