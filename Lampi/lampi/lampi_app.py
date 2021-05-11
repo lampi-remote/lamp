@@ -110,17 +110,23 @@ class LampiApp(App):
 
     def _build_pairing_popup(self):
         layout = StackLayout()
-        label = Label(text='A new remote is attempting\nto connect to your lamp.\n\nWould you like to\nallow it?', size_hint=(1, None), padding=(0, 0))
-        deny = Button(text='Deny', size_hint=(0.5, None), height=40)
-        allow = Button(text='Trust', size_hint=(0.5, None), height=40)
+        label = Label(text='A new remote is attempting\nto connect to your lamp.\n\nWould you like to\nallow it?', size_hint=(1, None), padding=(4, 4))
+        label.bind(size=self._update_textsize)
+        deny = Button(text='Deny', size_hint=(0.49, None), height=40)
+        allow = Button(text='Trust', size_hint=(0.49, None), height=40)
         allow.on_release = self._allow_remote
         deny.on_release = self._decline_remote
         layout.add_widget(label)
+        layout.add_widget(Label(size_hint=(1, None), height=15))
         layout.add_widget(deny)
+        layout.add_widget(Label(size_hint=(0.02, None), height=1))
         layout.add_widget(allow)
         return Popup(title='Remote Pairing Request',
                      content=layout,
-                     size_hint=(1, 1), auto_dismiss=False)
+                     size_hint=(1, 0.68), auto_dismiss=False)
+
+    def _update_textsize(self, instance, value):
+        instance.text_size = (value[0], value[1])
 
     def on_new_remote(self, client, userdata, message):
         isEmpty = message.payload == b''
@@ -144,6 +150,14 @@ class LampiApp(App):
         self._popup_remote = None
         self.pairing_popup.dismiss()
         self._update_remotes_ui()
+
+        # Display confirmation
+        conf = Popup(title='Remote Trusted',
+                     content=Label(text='You have successfully trusted\nyour remote. Pair it again to\nuse it'),
+                     size_hint=(1, 0.5), auto_dismiss=False)
+
+        conf.open()
+        Clock.schedule_once(lambda dt: conf.dismiss(), 3)
 
     def _decline_remote(self):
         print("Pairing denied for {}".format(self._popup_remote['address']))
