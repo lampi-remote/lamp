@@ -4,6 +4,7 @@ DEVICE_ID_FILENAME = '/sys/class/net/eth0/address'
 
 # MQTT Topic Names
 TOPIC_SET_LAMP_CONFIG = "lamp/set_config"
+TOPIC_SET_LAMP_PRESET = "lamp/preset"
 TOPIC_LAMP_CHANGE_NOTIFICATION = "lamp/changed"
 TOPIC_LAMP_ASSOCIATED = "lamp/associated"
 
