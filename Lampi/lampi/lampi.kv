@@ -6,6 +6,7 @@
 #:include lampi/controls/lampi_toggle.kv
 #:include lampi/controls/color_box.kv
 #:include lampi/colors.kv
+#:include lampi/remotes/header.kv
 
 TabbedPanel:
 
@@ -71,6 +72,12 @@ TabbedPanel:
       Label:
         text: 'Presets here'
 
+  TabbedPanelItem:
+    text: 'Remotes 1'
+    GridLayout:
+      id: 'remote_list'
+      cols: 2
+
   # Remotes
   TabbedPanelItem:
     text: 'Remotes'
@@ -79,14 +86,31 @@ TabbedPanel:
       do_scroll_y: True
 
       BoxLayout:
-        canvas.before:
-          Color:
-            rgb: 0.8, 0.8, 0.8
-          Line:
-            width: 1
-            rectangle: self.x, 0, self.width, 1
-        orientation: 'horizontal'
-        size_hint_y: 0.2
-
+        orientation: 'vertical'
+        Header:
+          text: 'Saved Remotes'
+        BoxLayout:
+          canvas.before:
+            Color:
+              rgb: 0.3, 0.3, 0.3
+            Rectangle:
+              pos: self.pos
+              size: self.size
+          orientation: 'horizontal'
+          size_hint_max_y: 50
+          Label:
+            text: '98::63'
+            text_size: self.size
+            padding: 8, 0
+            valign: 'middle'
+          Button:
+            text: 'x'
+            size_hint_x: 0.2
         Label:
-          text: 'Remotes'
+          text: 'Blacklisted Remotes'
+          padding: 8, 0
+          valign: 'middle'
+          text_size: self.size
+          size_hint_max_y: 30
+        Label:
+          size_hint_min_y: 0

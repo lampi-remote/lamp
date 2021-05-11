@@ -1,6 +1,6 @@
 import platform
 from kivy.app import App
-from kivy.properties import NumericProperty, AliasProperty, BooleanProperty
+from kivy.properties import NumericProperty, AliasProperty, BooleanProperty, ListProperty
 from kivy.clock import Clock
 from kivy.uix.popup import Popup
 from kivy.uix.label import Label
@@ -14,8 +14,12 @@ import lampi.lampi_util
 from mixpanel import Mixpanel
 from mixpanel_async import AsyncBufferedConsumer
 
-
+NEW_REMOTE_TOPIC = "lamp/bluetooth/new"
+BLACKLIST_REMOTE_TOPIC = "lamp/bluetooth/blacklist"
 MQTT_CLIENT_ID = "lamp_ui"
+
+MACS_FILE = os.path.join(os.path.dirname(__file__), "../bluetooth/macs.json")
+BADS_FILE = os.path.join(os.path.dirname(__file__), "../bluetooth/banned.json")
 
 try:
     from .mixpanel_settings import MIXPANEL_TOKEN
@@ -38,6 +42,9 @@ class LampiApp(App):
     _saturation = NumericProperty()
     _brightness = NumericProperty()
     lamp_is_on = BooleanProperty()
+
+    saved_remotes = ListProperty()
+    blacklisted_remotes = ListProperty()
 
     mp = Mixpanel(MIXPANEL_TOKEN, consumer=AsyncBufferedConsumer())
 
@@ -67,6 +74,19 @@ class LampiApp(App):
     gpio17_pressed = BooleanProperty(False)
     device_associated = BooleanProperty(True)
 
+    def fetch_remotes(self):
+        saved = "[]"
+        bad = "[]"
+
+        with open(MACS_FILE, 'r') as f:
+            saved = f.read()
+
+        with open(BADS_FILE, 'r') as f2:
+            bad = f2.read()
+
+        self.saved_remotes = json.loads(saved)
+        self.blacklisted_remotes = json.loads(bad)
+
     def on_start(self):
         self._publish_clock = None
         self.mqtt_broker_bridged = False
@@ -84,6 +104,8 @@ class LampiApp(App):
         self.associated_status_popup = self._build_associated_status_popup()
         self.associated_status_popup.bind(on_open=self.update_popup_associated)
         Clock.schedule_interval(self._poll_associated, 0.1)
+
+        self.fetch_remotes()
 
     def _build_associated_status_popup(self):
         return Popup(title='Associate your Lamp',
@@ -143,9 +165,16 @@ class LampiApp(App):
                                        self.receive_bridge_connection_status)
         self.mqtt.message_callback_add(TOPIC_LAMP_ASSOCIATED,
                                        self.receive_associated)
+        self.mqtt.message_callback_add(NEW_REMOTE_TOPIC,
+                                       self.on_new_remote)
         self.mqtt.subscribe(broker_bridge_connection_topic(), qos=1)
         self.mqtt.subscribe(TOPIC_LAMP_CHANGE_NOTIFICATION, qos=1)
         self.mqtt.subscribe(TOPIC_LAMP_ASSOCIATED, qos=2)
+        self.mqtt.subscribe(NEW_REMOTE_TOPIC, qos=2)
+
+    def on_new_remote(self, client, userdata, message):
+        mac = message.payload.decode('utf8')
+        print(mac)
 
     def _poll_associated(self, dt):
         # this polling loop allows us to synchronize changes from the

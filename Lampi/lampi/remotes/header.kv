@@ -1,0 +1,14 @@
+#:import Header lampi.remotes.header.Header
+
+<Header>:
+    canvas.before:
+        Color:
+            rgb: 0.3, 0.3, 0.3
+        Rectangle:
+            pos: self.pos
+            size: self.size
+    halign: 'left'
+    valign: 'middle'
+    padding: 8, 0
+    size_hint_max_y: 30
+    text_size: self.size
