@@ -26,6 +26,7 @@ var mqtt_client_connection_topic = 'lamp/connection/' + mqtt_clientId + '/state'
 
 const NEW_MAC_TOPIC = 'lamp/bluetooth/remote';
 const DISCOVERABLE_TOPIC = 'lamp/bluetooth/discovery';
+const DISCONNECT_TOPIC = 'lamp/bluetooth/disconnect';
 
 var mqtt_options = {
     clientId: mqtt_clientId,
@@ -58,11 +59,14 @@ mqtt_client.on('message', (topic, message) => {
 
             isDiscoverable = false;
         }
+    } else if (topic === DISCONNECT_TOPIC) {
+        bleno.disconnect();
     }
 });
 
 mqtt_client.on('connect', () => {
     mqtt_client.subscribe(DISCOVERABLE_TOPIC);
+    mqtt_client.subscribe(DISCONNECT_TOPIC);
 });
 
 bleno.on('stateChange', function(state) {

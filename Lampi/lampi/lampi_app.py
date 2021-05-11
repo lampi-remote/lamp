@@ -18,6 +18,8 @@ from mixpanel import Mixpanel
 from mixpanel_async import AsyncBufferedConsumer
 
 NEW_REMOTE_TOPIC = "lamp/bluetooth/remote"
+DISCOVERY_TOPIC = "lamp/bluetooth/discovery"
+DISCONNECT_TOPIC = "lamp/bluetooth/disconnect"
 MQTT_CLIENT_ID = "lamp_ui"
 
 try:
@@ -91,6 +93,7 @@ class LampiApp(App):
         self.associated_status_popup.bind(on_open=self.update_popup_associated)
 
         self._remote = None
+        self._popup_remote = None
         self.pairing_popup = self._build_pairing_popup()
 
         self._update_remotes_ui()
@@ -127,6 +130,7 @@ class LampiApp(App):
         else:
             remote = json.loads(message.payload.decode('utf-8'))
             self._remote = remote
+            self._popup_remote = remote
             if (not remote['allowed']):
                 self.pairing_popup.open()
 
@@ -134,25 +138,28 @@ class LampiApp(App):
 
 
     def _allow_remote(self):
-        print("Pairing allowed for {}".format(self._remote['address']))
-        remotes.saveAddress(self._remote['address'])
+        print("Pairing allowed for {}".format(self._popup_remote['address']))
+        remotes.saveAddress(self._popup_remote['address'])
         self._remote = None
+        self._popup_remote = None
         self.pairing_popup.dismiss()
         self._update_remotes_ui()
 
     def _decline_remote(self):
-        print("Declined pairing request for {}".format(self._remote['address']))
+        print("Pairing denied for {}".format(self._popup_remote['address']))
+        self._popup_remote = None
         self._remote = None
         self.pairing_popup.dismiss()
         self._update_remotes_ui()
 
     def clear_remotes(self):
         remotes.clear()
+        self.mqtt.publish(DISCONNECT_TOPIC, b'')
         self._update_remotes_ui()
 
     def toggle_discovery(self, instance, value):
         # Send message accordingly
-        self.mqtt.publish('lamp/bluetooth/discovery', ("true" if value else "false").encode('utf8'), retain=True)
+        self.mqtt.publish(DISCOVERY_TOPIC, ("true" if value else "false").encode('utf8'), retain=True)
 
     def _update_remotes_ui(self):
         savedremotes = remotes._read()
