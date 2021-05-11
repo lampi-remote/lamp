@@ -1,5 +1,6 @@
 #! /usr/bin/env node
-const fs = require('fs');
+const macs = require('./macs');
+
 var child_process = require('child_process');
 var device_id = child_process.execSync('cat /sys/class/net/eth0/address | sed s/://g').toString().replace(/\n$/, '');
 
@@ -23,83 +24,67 @@ var bt_lastRssi = 0;
 var mqtt_clientId = 'lamp_bt_central';
 var mqtt_client_connection_topic = 'lamp/connection/' + mqtt_clientId + '/state';
 
+const NEW_MAC_TOPIC = 'lamp/bluetooth/remote';
+const DISCOVERABLE_TOPIC = 'lamp/bluetooth/discovery';
+
 var mqtt_options = {
     clientId: mqtt_clientId,
+    will: {
+        topic: NEW_MAC_TOPIC,
+        payload: null,
+        retain: true,
+        qos: 2,
+    }
 }
+
+var isAdvertising = false;
+var isDiscoverable = true;
 
 var mqtt_client = mqtt.connect('mqtt://localhost', mqtt_options);
 
-const BLACKLIST_TOPIC = 'lamp/bluetooth/blacklist';
-const NEW_MAC_TOPIC = 'lamp/bluetooth/new';
+mqtt_client.on('message', (topic, message) => {
+    if (topic === DISCOVERABLE_TOPIC) {
+        if (message.toString() === "true") {
+            if (!isDiscoverable && !isAdvertising) {
+                advertise();
+            }
+
+            isDiscoverable = true;
+        } else {
+            if (isDiscoverable && isAdvertising) {
+                bleno.stopAdvertising();
+                isAdvertising = false;
+            }
+
+            isDiscoverable = false;
+        }
+    }
+});
 
 mqtt_client.on('connect', () => {
-    mqtt_client.subscribe('lamp/bluetooth/blacklist');
+    mqtt_client.subscribe(DISCOVERABLE_TOPIC);
 });
-
-mqtt_client.on('message', (topic, message) => {
-    console.log(topic);
-    console.log(message.toString());
-});
-
-const MACS_FILE = `${__dirname}/macs.json`;
-const BADS_FILE = `${__dirname}/banned.json`;
-
-function getSavedAddresses() {
-    let raw = "[]";
-
-    try {
-        raw = fs.readFileSync(MACS_FILE);
-    } catch (e) {
-        fs.writeFileSync(MACS_FILE, raw);
-    }
-
-    return new Set(JSON.parse(raw));
-}
-
-function getBlacklistedAddresses() {
-    let raw = "[]";
-
-    try {
-        raw = fs.readFileSync(BADS_FILE);
-    } catch (e) {
-        fs.writeFileSync(BADS_FILE, raw);
-    }
-
-    return new Set(JSON.parse(raw));
-}
-
-function saveNewAddress(addr) {
-    let all = getSavedAddresses();
-    all.add(addr);
-    fs.writeFileSync(MACS_FILE, JSON.stringify([...all]));
-    mqtt_client.publish(NEW_MAC_TOPIC, addr);
-}
-
-function blacklistAddress(addr) {
-    let bad = getBlacklistedAddresses();
-    bad.add(addr);
-    fs.writeFileSync(BADS_FILE, JSON.stringify([...bad]));
-
-    if (addr == bt_clientAddress) {
-        bleno.disconnect();
-    }
-}
 
 bleno.on('stateChange', function(state) {
   if (state === 'poweredOn') {
-    bleno.startAdvertising('LampiService', [lampiService.uuid, deviceInfoService.uuid], function(err)  {
-      if (err) console.log(err);
-    });
+    if (isDiscoverable) advertise();
   } else {
+    isAdvertising = false;
     bleno.stopAdvertising();
     console.log('not poweredOn');
   }
 });
 
+function advertise() {
+    bleno.startAdvertising('LampiService', [lampiService.uuid, deviceInfoService.uuid], function(err)  {
+      if (err) console.log(err);
+    });
+}
 
 bleno.on('advertisingStart', function(err) {
   if (!err) {
     console.log('advertising...');
+    isAdvertising = true;
     bleno.setServices([
         lampiService,
         deviceInfoService,
@@ -132,16 +117,17 @@ function updateRSSI(err, rssi) {
 bleno.on('accept', function(clientAddress) {
     console.log('New connection from: ' + clientAddress);
 
-    const blacklisted = getBlacklistedAddresses();
-    const saved = getSavedAddresses();
+    const status = {
+        allowed: macs.isAllowed(clientAddress),
+        address: clientAddress,
+    };
 
-    if (blacklisted.has(clientAddress)) {
-        console.log(`Blacklisted client ${clientAddress} rejected`);
+    if (!status.allowed) {
+        mqtt_client.publish(NEW_MAC_TOPIC, JSON.stringify(status));
         bleno.disconnect();
         return;
-    } else if (!saved.has(clientAddress)) {
-        console.log('Storing new address', clientAddress);
-        saveNewAddress(clientAddress);
+    } else {
+        mqtt_client.publish(NEW_MAC_TOPIC, JSON.stringify(status), { retain: true });
     }
 
     bt_clientAddress = clientAddress;
@@ -161,6 +147,7 @@ bleno.on('disconnect', function(clientAddress) {
         state: 'disconnected',
         'client': bt_clientAddress,
         }));
+    mqtt_client.publish(NEW_MAC_TOPIC, null, { retain: true });
     bt_clientAddress = null;
     bt_lastRssi = 0;
 });

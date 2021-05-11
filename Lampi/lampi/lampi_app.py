@@ -1,9 +1,11 @@
 import platform
 from kivy.app import App
-from kivy.properties import NumericProperty, AliasProperty, BooleanProperty, ListProperty
+from kivy.properties import NumericProperty, AliasProperty, BooleanProperty, ListProperty, StringProperty
 from kivy.clock import Clock
+from kivy.uix.stacklayout import StackLayout
 from kivy.uix.popup import Popup
 from kivy.uix.label import Label
+from kivy.uix.button import Button
 from math import fabs
 import json
 import os
@@ -11,15 +13,12 @@ from paho.mqtt.client import Client
 import pigpio
 from lamp_common import *
 import lampi.lampi_util
+import remotes
 from mixpanel import Mixpanel
 from mixpanel_async import AsyncBufferedConsumer
 
-NEW_REMOTE_TOPIC = "lamp/bluetooth/new"
-BLACKLIST_REMOTE_TOPIC = "lamp/bluetooth/blacklist"
+NEW_REMOTE_TOPIC = "lamp/bluetooth/remote"
 MQTT_CLIENT_ID = "lamp_ui"
-
-MACS_FILE = os.path.join(os.path.dirname(__file__), "../bluetooth/macs.json")
-BADS_FILE = os.path.join(os.path.dirname(__file__), "../bluetooth/banned.json")
 
 try:
     from .mixpanel_settings import MIXPANEL_TOKEN
@@ -43,8 +42,8 @@ class LampiApp(App):
     _brightness = NumericProperty()
     lamp_is_on = BooleanProperty()
 
-    saved_remotes = ListProperty()
-    blacklisted_remotes = ListProperty()
+    remote_connection = StringProperty("[b]Connected:[/b] No")
+    trusted_remotes = StringProperty("[b]Trusted Remotes:[/b] None")
 
     mp = Mixpanel(MIXPANEL_TOKEN, consumer=AsyncBufferedConsumer())
 
@@ -74,19 +73,6 @@ class LampiApp(App):
     gpio17_pressed = BooleanProperty(False)
     device_associated = BooleanProperty(True)
 
-    def fetch_remotes(self):
-        saved = "[]"
-        bad = "[]"
-
-        with open(MACS_FILE, 'r') as f:
-            saved = f.read()
-
-        with open(BADS_FILE, 'r') as f2:
-            bad = f2.read()
-
-        self.saved_remotes = json.loads(saved)
-        self.blacklisted_remotes = json.loads(bad)
-
     def on_start(self):
         self._publish_clock = None
         self.mqtt_broker_bridged = False
@@ -103,14 +89,84 @@ class LampiApp(App):
         self.set_up_GPIO_and_device_status_popup()
         self.associated_status_popup = self._build_associated_status_popup()
         self.associated_status_popup.bind(on_open=self.update_popup_associated)
-        Clock.schedule_interval(self._poll_associated, 0.1)
 
-        self.fetch_remotes()
+        self._remote = None
+        self.pairing_popup = self._build_pairing_popup()
+
+        self._update_remotes_ui()
+
+        self.discoverswitch = self.root.ids.discoverswitch
+        self.discoverswitch.bind(active=self.toggle_discovery)
+
+        Clock.schedule_interval(self._poll_associated, 0.1)
 
     def _build_associated_status_popup(self):
         return Popup(title='Associate your Lamp',
                      content=Label(text='Msg here', font_size='30sp'),
                      size_hint=(1, 1), auto_dismiss=False)
+
+    def _build_pairing_popup(self):
+        layout = StackLayout()
+        label = Label(text='A new remote is attempting\nto connect to your lamp.\n\nWould you like to\nallow it?', size_hint=(1, None), padding=(0, 0))
+        deny = Button(text='Deny', size_hint=(0.5, None), height=40)
+        allow = Button(text='Trust', size_hint=(0.5, None), height=40)
+        allow.on_release = self._allow_remote
+        deny.on_release = self._decline_remote
+        layout.add_widget(label)
+        layout.add_widget(deny)
+        layout.add_widget(allow)
+        return Popup(title='Remote Pairing Request',
+                     content=layout,
+                     size_hint=(1, 1), auto_dismiss=False)
+
+    def on_new_remote(self, client, userdata, message):
+        isEmpty = message.payload == b''
+
+        if isEmpty:
+            self._remote = None
+        else:
+            remote = json.loads(message.payload.decode('utf-8'))
+            self._remote = remote
+            if (not remote['allowed']):
+                self.pairing_popup.open()
+
+        self._update_remotes_ui()
+
+
+    def _allow_remote(self):
+        print("Pairing allowed for {}".format(self._remote['address']))
+        remotes.saveAddress(self._remote['address'])
+        self._remote = None
+        self.pairing_popup.dismiss()
+        self._update_remotes_ui()
+
+    def _decline_remote(self):
+        print("Declined pairing request for {}".format(self._remote['address']))
+        self._remote = None
+        self.pairing_popup.dismiss()
+        self._update_remotes_ui()
+
+    def clear_remotes(self):
+        remotes.clear()
+        self._update_remotes_ui()
+
+    def toggle_discovery(self, instance, value):
+        # Send message accordingly
+        self.mqtt.publish('lamp/bluetooth/discovery', ("true" if value else "false").encode('utf8'), retain=True)
+
+    def _update_remotes_ui(self):
+        savedremotes = remotes._read()
+        statustext = "[b]Connected:[/b] False\n\n"
+
+        if (self._remote is not None):
+            self.remote_connection = "[b]Connected:[/b] [color=32ff32]{}[/color]".format(self._remote['address'])
+        else:
+            self.remote_connection = "[b]Connected:[/b] [color=ff3232]Not connected[/color]"
+
+        if (len(savedremotes) == 0):
+            self.trusted_remotes = "[b]Trusted Remotes:[/b] None"
+        else:
+            self.trusted_remotes = "[b]Trusted Remotes:[/b]\n" + "\n".join([" • {}".format(addr) for addr in savedremotes])
 
     def on_hue(self, instance, value):
         if self._updatingUI:
@@ -171,10 +227,6 @@ class LampiApp(App):
         self.mqtt.subscribe(TOPIC_LAMP_CHANGE_NOTIFICATION, qos=1)
         self.mqtt.subscribe(TOPIC_LAMP_ASSOCIATED, qos=2)
         self.mqtt.subscribe(NEW_REMOTE_TOPIC, qos=2)
-
-    def on_new_remote(self, client, userdata, message):
-        mac = message.payload.decode('utf8')
-        print(mac)
 
     def _poll_associated(self, dt):
         # this polling loop allows us to synchronize changes from the
