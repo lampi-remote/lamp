@@ -68,6 +68,9 @@ class LampPreset:
 
                 last = fin
 
+                if self.stop:
+                    break
+
             time.sleep(last['waitTime'])
             if self.stop or not preset['loop']:
                 self.stop = False

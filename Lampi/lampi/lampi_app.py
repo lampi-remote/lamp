@@ -1,9 +1,13 @@
 import platform
+import kivy
 from kivy.app import App
+kivy.require('1.9.0')
 from kivy.properties import NumericProperty, AliasProperty, BooleanProperty
 from kivy.clock import Clock
 from kivy.uix.popup import Popup
 from kivy.uix.label import Label
+from kivy.uix.scrollview import ScrollView
+
 from math import fabs
 import json
 import os
@@ -14,8 +18,19 @@ import lampi.lampi_util
 from mixpanel import Mixpanel
 from mixpanel_async import AsyncBufferedConsumer
 
+from kivy.uix.button import Button
+
+class ScrollButton(Button):
+    pass
 
 MQTT_CLIENT_ID = "lamp_ui"
+
+PRESET_FOLDER_DIRECTORY = './presets/'
+PRESETS = [
+    PRESET_FOLDER_DIRECTORY + "preset" + str(1),
+    PRESET_FOLDER_DIRECTORY + "preset" + str(2),
+    PRESET_FOLDER_DIRECTORY + "preset" + str(3),
+]
 
 try:
     from .mixpanel_settings import MIXPANEL_TOKEN
@@ -37,7 +52,10 @@ class LampiApp(App):
     _hue = NumericProperty()
     _saturation = NumericProperty()
     _brightness = NumericProperty()
+    _preset = NumericProperty()
     lamp_is_on = BooleanProperty()
+    _preset_color = NumericProperty()
+    _preset_temp = NumericProperty()
 
     mp = Mixpanel(MIXPANEL_TOKEN, consumer=AsyncBufferedConsumer())
 
@@ -59,11 +77,35 @@ class LampiApp(App):
     def _set_brightness(self, value):
         self._brightness = value
 
+    def _get_preset(self):
+        return self._preset
+
+    def _set_preset(self, value):
+        self._preset = value
+
+    def _get_preset_color(self):
+        return self._preset_color
+
+    def _set_preset_color(self, value):
+        self._preset_color = value
+
+    def _get_preset_temp(self):
+        return self._preset_temp
+
+    def _set_preset_temp(self, value):
+        self._preset_temp = value
+
     hue = AliasProperty(_get_hue, _set_hue, bind=['_hue'])
     saturation = AliasProperty(_get_saturation, _set_saturation,
                                bind=['_saturation'])
     brightness = AliasProperty(_get_brightness, _set_brightness,
                                bind=['_brightness'])
+    preset = AliasProperty(_get_preset, _set_preset,
+                               bind=['_preset'])
+    preset_color = AliasProperty(_get_preset_color, _set_preset_color,
+                               bind=['_preset_color'])
+    preset_temp = AliasProperty(_get_preset_temp, _set_preset_temp,
+                               bind=['_preset_temp'])
     gpio17_pressed = BooleanProperty(False)
     device_associated = BooleanProperty(True)
 
@@ -124,6 +166,12 @@ class LampiApp(App):
         if self._publish_clock is None:
             self._publish_clock = Clock.schedule_once(
                 lambda dt: self._update_leds(), 0.01)
+
+    def on_preset_temp(self, instance, value):
+        if self._updatingUI:
+            return
+        self._track_ui_event('Slider Change',
+                             {'slider': 'preset_hue_slider', 'value': value})
 
     def _track_ui_event(self, event_name, additional_props={}):
         device_id = lampi.lampi_util.get_device_id()
@@ -257,3 +305,24 @@ class LampiApp(App):
     def _poll_GPIO(self, dt):
         # GPIO17 is the rightmost button when looking front of LAMPI
         self.gpio17_pressed = not self.pi.read(17)
+
+    def write_preset(self, num):
+
+        filewrite = {
+            "stateList": [
+                {
+                    "state": {
+                        "h": self._preset_color,
+                        "s": 1.0,
+                        "b": 1.0
+                    },
+                    "smooth": False,
+                    "waitTime": 0,
+                    "transitionTime": 0
+                },
+            ],
+            'loop': False
+        }
+
+        with open(PRESETS[num - 1] + ".json", "w") as f:
+            json.dump(filewrite, f)

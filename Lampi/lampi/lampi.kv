@@ -8,37 +8,38 @@
 #:include lampi/controls/color_box.kv
 #:include lampi/colors.kv
 
-<Preset1@Popup>:
+<Preset@Popup>:
   auto_dismiss: False
-  title: 'Preset 1'
+  title: str(app.preset)
   BoxLayout:
     orientation: 'vertical'
-    ScrollView:
-      do_scroll_x: False
-      do_scroll_y: True
-
-      Label:
-        # size_hint_y: None
-        height: self.texture_size[1]
-        # text_size: self.width, None
-        padding: 10, 10
-        text:
-          'really some amazing text\n' * 100
-    Button:
-      text: '1: Close me!'
-      on_release: root.dismiss()
-<Preset2@Popup>:
-  auto_dismiss: False
-  title: 'Preset 2'
-  Button:
-    text: '2: Close me!'
-    on_release: root.dismiss()
-<Preset3@Popup>:
-  auto_dismiss: False
-  title: 'Preset 3'
-  Button:
-    text: '3: Close me!'
-    on_release: root.dismiss()
+    BoxLayout:
+      orientation: 'vertical'
+      size_hint_y: 0.8
+      ColorBox:
+        id: preset_button_hue
+        # size_hint_y: 0.6
+        color: hsv_to_rgb(app.preset_temp, 1.0, 1.0)
+      GradientSlider:
+        id: preset_hue_slider
+        size_hint_y: 0.22
+        colors: red, yellow, green, cyan, blue, magenta, red
+        value: app.preset_color
+        on_value: app.preset_temp = self.value_normalized
+    BoxLayout:
+      orientation: 'horizontal'
+      size_hint_y: 0.2
+      Button:
+        text: 'Save'
+        on_release:
+          app.preset_color = app.preset_temp
+          app.write_preset(app.preset)
+          root.dismiss()
+      Button:
+        text: 'Cancel'
+        on_release:
+          app.preset_temp = app.preset_color
+          root.dismiss()
 
 TabbedPanel:
 
@@ -104,19 +105,25 @@ TabbedPanel:
       orientation: 'vertical'
       Button:
         text: 'Preset 1'
-        on_press: Factory.Preset1().open()
+        on_press: 
+          Factory.Preset().open()
+          app.preset = 1
         # on_state:
         #   print("preset 1")
-      Button:
-        text: 'Preset 2'
-        on_press: Factory.Preset2().open()
-        # on_state:
-        #   print("preset 2")
-      Button:
-        text: 'Preset 3'
-        on_press: Factory.Preset3().open()
-        # on_state:
-        #   print("preset 3")
+      # Button:
+      #   text: 'Preset 2'
+      #   on_press: 
+      #     Factory.Preset().open()
+      #     app.preset = 2
+      #   # on_state:
+      #   #   print("preset 2")
+      # Button:
+      #   text: 'Preset 3'
+      #   on_press: 
+      #     Factory.Preset().open()
+      #     app.preset = 3
+      #   # on_state:
+      #   #   print("preset 3")
 
   # Remotes
   TabbedPanelItem:
