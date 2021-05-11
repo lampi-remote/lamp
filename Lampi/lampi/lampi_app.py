@@ -2,12 +2,14 @@ import platform
 import kivy
 from kivy.app import App
 kivy.require('1.9.0')
-from kivy.properties import NumericProperty, AliasProperty, BooleanProperty
+from kivy.properties import NumericProperty, AliasProperty, BooleanProperty, ListProperty, StringProperty
 from kivy.clock import Clock
+from kivy.uix.stacklayout import StackLayout
 from kivy.uix.popup import Popup
 from kivy.uix.label import Label
 from kivy.uix.scrollview import ScrollView
 
+from kivy.uix.button import Button
 from math import fabs
 import json
 import os
@@ -15,13 +17,17 @@ from paho.mqtt.client import Client
 import pigpio
 from lamp_common import *
 import lampi.lampi_util
+import remotes
 from mixpanel import Mixpanel
 from mixpanel_async import AsyncBufferedConsumer
 
-from kivy.uix.button import Button
 
 class ScrollButton(Button):
     pass
+
+NEW_REMOTE_TOPIC = "lamp/bluetooth/remote"
+DISCOVERY_TOPIC = "lamp/bluetooth/discovery"
+DISCONNECT_TOPIC = "lamp/bluetooth/disconnect"
 
 MQTT_CLIENT_ID = "lamp_ui"
 
@@ -56,6 +62,9 @@ class LampiApp(App):
     lamp_is_on = BooleanProperty()
     _preset_color = NumericProperty()
     _preset_temp = NumericProperty()
+
+    remote_connection = StringProperty("[b]Connected:[/b] No")
+    trusted_remotes = StringProperty("[b]Trusted Remotes:[/b] None")
 
     mp = Mixpanel(MIXPANEL_TOKEN, consumer=AsyncBufferedConsumer())
 
@@ -125,12 +134,103 @@ class LampiApp(App):
         self.set_up_GPIO_and_device_status_popup()
         self.associated_status_popup = self._build_associated_status_popup()
         self.associated_status_popup.bind(on_open=self.update_popup_associated)
+
+        self._remote = None
+        self._popup_remote = None
+        self.pairing_popup = self._build_pairing_popup()
+
+        self._update_remotes_ui()
+
+        self.discoverswitch = self.root.ids.discoverswitch
+        self.discoverswitch.bind(active=self.toggle_discovery)
+
         Clock.schedule_interval(self._poll_associated, 0.1)
 
     def _build_associated_status_popup(self):
         return Popup(title='Associate your Lamp',
                      content=Label(text='Msg here', font_size='30sp'),
                      size_hint=(1, 1), auto_dismiss=False)
+
+    def _build_pairing_popup(self):
+        layout = StackLayout()
+        label = Label(text='A new remote is attempting\nto connect to your lamp.\n\nWould you like to\nallow it?', size_hint=(1, None), padding=(4, 4))
+        label.bind(size=self._update_textsize)
+        deny = Button(text='Deny', size_hint=(0.49, None), height=40)
+        allow = Button(text='Trust', size_hint=(0.49, None), height=40)
+        allow.on_release = self._allow_remote
+        deny.on_release = self._decline_remote
+        layout.add_widget(label)
+        layout.add_widget(Label(size_hint=(1, None), height=15))
+        layout.add_widget(deny)
+        layout.add_widget(Label(size_hint=(0.02, None), height=1))
+        layout.add_widget(allow)
+        return Popup(title='Remote Pairing Request',
+                     content=layout,
+                     size_hint=(1, 0.68), auto_dismiss=False)
+
+    def _update_textsize(self, instance, value):
+        instance.text_size = (value[0], value[1])
+
+    def on_new_remote(self, client, userdata, message):
+        isEmpty = message.payload == b''
+
+        if isEmpty:
+            self._remote = None
+        else:
+            remote = json.loads(message.payload.decode('utf-8'))
+            self._remote = remote
+            self._popup_remote = remote
+            if (not remote['allowed']):
+                self.pairing_popup.open()
+
+        self._update_remotes_ui()
+
+
+    def _allow_remote(self):
+        print("Pairing allowed for {}".format(self._popup_remote['address']))
+        remotes.saveAddress(self._popup_remote['address'])
+        self._remote = None
+        self._popup_remote = None
+        self.pairing_popup.dismiss()
+        self._update_remotes_ui()
+
+        # Display confirmation
+        conf = Popup(title='Remote Trusted',
+                     content=Label(text='You have successfully trusted\nyour remote. Pair it again to\nuse it'),
+                     size_hint=(1, 0.5), auto_dismiss=False)
+
+        conf.open()
+        Clock.schedule_once(lambda dt: conf.dismiss(), 3)
+
+    def _decline_remote(self):
+        print("Pairing denied for {}".format(self._popup_remote['address']))
+        self._popup_remote = None
+        self._remote = None
+        self.pairing_popup.dismiss()
+        self._update_remotes_ui()
+
+    def clear_remotes(self):
+        remotes.clear()
+        self.mqtt.publish(DISCONNECT_TOPIC, b'')
+        self._update_remotes_ui()
+
+    def toggle_discovery(self, instance, value):
+        # Send message accordingly
+        self.mqtt.publish(DISCOVERY_TOPIC, ("true" if value else "false").encode('utf8'), retain=True)
+
+    def _update_remotes_ui(self):
+        savedremotes = remotes._read()
+        statustext = "[b]Connected:[/b] False\n\n"
+
+        if (self._remote is not None):
+            self.remote_connection = "[b]Connected:[/b] [color=32ff32]{}[/color]".format(self._remote['address'])
+        else:
+            self.remote_connection = "[b]Connected:[/b] [color=ff3232]Not connected[/color]"
+
+        if (len(savedremotes) == 0):
+            self.trusted_remotes = "[b]Trusted Remotes:[/b] None"
+        else:
+            self.trusted_remotes = "[b]Trusted Remotes:[/b]\n" + "\n".join([" • {}".format(addr) for addr in savedremotes])
 
     def on_hue(self, instance, value):
         if self._updatingUI:
@@ -191,9 +291,12 @@ class LampiApp(App):
                                        self.receive_bridge_connection_status)
         self.mqtt.message_callback_add(TOPIC_LAMP_ASSOCIATED,
                                        self.receive_associated)
+        self.mqtt.message_callback_add(NEW_REMOTE_TOPIC,
+                                       self.on_new_remote)
         self.mqtt.subscribe(broker_bridge_connection_topic(), qos=1)
         self.mqtt.subscribe(TOPIC_LAMP_CHANGE_NOTIFICATION, qos=1)
         self.mqtt.subscribe(TOPIC_LAMP_ASSOCIATED, qos=2)
+        self.mqtt.subscribe(NEW_REMOTE_TOPIC, qos=2)
 
     def _poll_associated(self, dt):
         # this polling loop allows us to synchronize changes from the

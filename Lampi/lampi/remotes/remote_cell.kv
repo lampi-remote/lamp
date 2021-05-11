@@ -1,0 +1,32 @@
+#:import RemoteCell lampi.remotes.remote_cell.RemoteCell
+
+<RemoteCell>:
+    canvas.before:
+        Color:
+            rgb: 1, 0, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+    # Cell layout
+
+    orientation: 'horizontal'
+    size: 150, 50
+
+    Label:
+        text: root.address
+
+    # Labels
+#    BoxLayout:
+#        size_hint_x: 1
+#        orientation: 'vertical'
+#        Label:
+#            text: cell.address
+#            bold: cell.connected
+#        Label:
+#            text: cell.detail_text
+            
+    # Button
+    Button:
+        size_hint_x: 0.2
+        text: root.button_text

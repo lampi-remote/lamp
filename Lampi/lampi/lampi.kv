@@ -7,6 +7,23 @@
 #:include lampi/controls/lampi_toggle.kv
 #:include lampi/controls/color_box.kv
 #:include lampi/colors.kv
+#:include lampi/remotes/header.kv
+
+<Separator@Widget>:
+  canvas:
+    Color:
+      rgba: 1, 1, 1, 1
+    Rectangle:
+      pos: self.pos
+      size: self.size
+
+<HSeparator@Separator>:
+  size_hint_y: None
+  height: dp(1)
+
+<VSeparator@Separator>:
+  size_hint_x: None
+  width: dp(1)
 
 <Preset@Popup>:
   auto_dismiss: False
@@ -46,7 +63,7 @@ TabbedPanel:
   do_default_tab: False
 
   TabbedPanelItem:
-    text: 'LED Controls'
+    text: 'Home'
     BoxLayout:
       canvas.before:
         Color:
@@ -129,5 +146,35 @@ TabbedPanel:
   TabbedPanelItem:
     text: 'Remotes'
     BoxLayout:
+      orientation: 'vertical'
+      BoxLayout:
+        size_hint_y: 0.2
+        padding: (4, 8)
+        Label:
+          padding: (4, 0)
+          text: 'Discoverable?'
+          text_size: (self.width, None)
+          size_hint_x: 1
+        Switch:
+          id: discoverswitch
+          active: True
+          size_hint_x: None
+      HSeparator:
       Label:
-        text: 'Remotes here'
+        text: app.remote_connection
+        markup: True
+        text_size: self.size
+        padding: (8, 8)
+        size_hint_y: 0.2
+      HSeparator:
+      Label:
+        text: app.trusted_remotes
+        markup: True
+        text_size: self.size
+        valign: 'top'
+        padding: (8, 8)
+      Button:
+        text: 'Clear trusted remotes'
+        size_hint_y: 0.2
+        background_color: (1, 0, 0, 1)
+        on_release: app.clear_remotes()
