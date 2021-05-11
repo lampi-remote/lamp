@@ -4,6 +4,7 @@ var bleno = require('bleno');
 var LampiOnOffCharacteristic = require('./lampi-onoff-characteristic');
 var LampiBrightnessCharacteristic = require('./lampi-brightness-characteristic');
 var LampiHSVCharacteristic = require('./lampi-hsv-characteristic');
+var LampiPresetCharacteristic = require('./lampi-preset-characteristic');
 
 function LampiService(lampiState) {
     bleno.PrimaryService.call(this, {
@@ -12,6 +13,7 @@ function LampiService(lampiState) {
             new LampiHSVCharacteristic(lampiState),
             new LampiBrightnessCharacteristic(lampiState),
             new LampiOnOffCharacteristic(lampiState),
+            new LampiPresetCharacteristic(lampiState),
         ]
     });
 }

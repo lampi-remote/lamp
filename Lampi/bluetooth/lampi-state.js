@@ -10,6 +10,7 @@ function LampiState() {
     this.hue = 0xFF;
     this.saturation = 0xFF;
     this.value = 0xFF;
+    this.preset_num = 0x0;
     this.clientId = 'lamp_bt_peripheral';
     this.has_received_first_update = false;
 
@@ -97,5 +98,16 @@ LampiState.prototype.set_hsv = function(hue, saturation, value) {
     this.mqtt_client.publish('lamp/set_config', JSON.stringify(tmp));
     console.log('hsv = ', this.hue, this.saturation, this.value);
 };
+
+LampiState.prototype.set_preset = function(preset_num) {
+    this.preset_num = preset_num;
+
+    var tmp = {
+        'client': this.clientId,
+        'preset_number': this.preset_num
+    };
+    this.mqtt_client.publish('lamp/preset', JSON.stringify(tmp));
+    console.log(`preset = ${this.preset_num}`);
+}
 
 module.exports = LampiState;

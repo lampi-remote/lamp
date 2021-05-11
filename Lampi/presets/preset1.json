@@ -8,7 +8,7 @@
             },
             "smooth": true,
             "waitTime": 0,
-            "transitionTime": 10
+            "transitionTime": 30
         },
         {
             "state": {

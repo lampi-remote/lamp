@@ -44,18 +44,20 @@ class LampPreset:
 
     def __init__(self):
         self.lamp_driver = LampDriver()
+        self.stop = False
 
     def get_preset(self, index):
         with open(PRESETS[index] + ".json") as f:
             preset = json.load(f)
-        
+
         return preset
 
+    def play_preset(self, preset_number):
+        self.stop = False
 
-    def play_preset(self):
         while True:
-            preset = self.get_preset(0)
-            
+            preset = self.get_preset(preset_number)
+
             for init, fin in zip(preset['stateList'], preset['stateList'][1:]):
                 time.sleep(init['waitTime'])
 
@@ -67,10 +69,13 @@ class LampPreset:
                 last = fin
 
             time.sleep(last['waitTime'])
-            if not preset['loop']:
+            if self.stop or not preset['loop']:
+                self.stop = False
                 break
 
-    
+    def stop_preset(self):
+        self.stop = True
+
     def smooth(self, init, fin, duration):
 
         prev = self.round_state(init)
@@ -90,22 +95,20 @@ class LampPreset:
                 else:
                     init[k] = max(init[k] + v, fin[k])
 
-            if elapsed_time > duration:
-                init = fin
-            
-            time.sleep(0.01)
+#            if elapsed_time > duration:
+#                init = fin
+
+            time.sleep(0.001)
             end = time.time()
-            delta = (end - current) / duration / 100 * mult
+            delta = (end - current) / duration / 1000 * mult
 
             curr = self.round_state(copy.deepcopy(init))
             if not prev == curr:
                 prev = curr
                 self.lamp_driver.set_lamp_state(curr['h'], curr['s'], curr['b'], True)
                 print(curr)
-                
 
         print('Finished iterating in:', str(round(float(elapsed_time),2)), 'seconds')
-
 
     def round_state(self, state):
         for k, v in state.items():
@@ -113,12 +116,11 @@ class LampPreset:
 
         return state
 
-
     def find_step(self, base_step, init, fin):
         step = {
             'h': fin['h'] - init['h'],
             's': fin['s'] - init['s'],
-            'b': fin['b'] - init['b'] 
+            'b': fin['b'] - init['b']
         }
 
         base_value = None
@@ -135,13 +137,12 @@ class LampPreset:
             elif not k == base_key:
                 step[k] = v / base_value * base_step
 
-        return step, base_value * 100
+        return step, base_value * 1000
+
+    # def run(self):
+    #     self.play_preset()
 
 
-    def run(self):
-        self.play_preset()
 
-
-
-if __name__ == "__main__":
-    LampPreset().run()
+# if __name__ == "__main__":
+#     LampPreset().run()

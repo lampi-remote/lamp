@@ -6,6 +6,7 @@ import shelve
 import colorsys
 
 from lamp_common import *
+from lamp_preset import *
 
 PIN_R = 19
 PIN_G = 26
@@ -43,6 +44,7 @@ class LampDriver(object):
 
 class LampService(object):
     def __init__(self):
+        self.lamp_preset = LampPreset()
         self.lamp_driver = LampDriver()
         self._client = self._create_and_configure_broker_client()
         self.db = shelve.open(LAMP_STATE_FILENAME, writeback=True)
@@ -65,6 +67,8 @@ class LampService(object):
         client.on_connect = self.on_connect
         client.message_callback_add(TOPIC_SET_LAMP_CONFIG,
                                     self.on_message_set_config)
+        client.message_callback_add(TOPIC_SET_LAMP_PRESET,
+                                    self.on_message_set_preset)
         client.on_message = self.default_on_message
         return client
 
@@ -78,12 +82,21 @@ class LampService(object):
         self._client.publish(client_state_topic(MQTT_CLIENT_ID), "1",
                              qos=2, retain=True)
         self._client.subscribe(TOPIC_SET_LAMP_CONFIG, qos=1)
+        self._client.subscribe(TOPIC_SET_LAMP_PRESET, qos=1)
         # publish current lamp state at startup
         self.publish_config_change()
 
     def default_on_message(self, client, userdata, msg):
         print("Received unexpected message on topic " +
               msg.topic + " with payload '" + str(msg.payload) + "'")
+
+    def on_message_set_preset(self, client, userdata, msg):
+        print("works")
+        try:
+            new_config = json.loads(msg.payload.decode('utf-8'))
+            self.set_lamp_preset(new_config['preset_number'])
+        except InvalidLampConfig:
+            print("error applying new settings " + str(msg.payload))
 
     def on_message_set_config(self, client, userdata, msg):
         try:
@@ -163,6 +176,12 @@ class LampService(object):
             r, g, b = tuple(channel * pwm * brightness
                             for channel in rgb)
         return r, g, b
+
+    def set_lamp_preset(self, preset_number):
+        if preset_number >= 1 and preset_number <= 3:
+            self.lamp_preset.play_preset(preset_number)
+        else:
+            self.lamp_preset.stop_preset
 
 
 if __name__ == '__main__':
